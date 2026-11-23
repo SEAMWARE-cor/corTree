@@ -184,7 +184,9 @@ static void heapInit(void)
       // mapping, the untouched ones as zeros - 64 GiB of them, and the crashing broker took minutes to die.
       // A 64 MiB window is put back in as its first page is handed out (corTreeHeapAlloc)
       //
+#if defined(MADV_DONTDUMP)                    // Linux; macOS has no dump filter of its own
       madvise(startP, size, MADV_DONTDUMP);
+#endif
 
       pageClassV = (uint8_t*) tableP;
       heapSize   = size;
@@ -250,8 +252,10 @@ void* corTreeHeapAlloc(int size)
           return malloc(size);    // the range is full
         }
 
+#if defined(MADV_DODUMP)
         if ((offset & ((64ULL << 20) - 1)) == 0)    // a new 64 MiB window: in a core dump from now on
           madvise(heapStart + offset, (heapSize - offset < (64ULL << 20))? heapSize - offset : (64ULL << 20), MADV_DODUMP);
+#endif
 
         pageClassV[offset >> 14] = (uint8_t) ix;
         cP->next = heapStart + offset;
